@@ -5,6 +5,7 @@ type Config struct {
 	MountDir      string        `yaml:"mountDir"`
 	OutputDir     string        `yaml:"outputDir"`
 	ElasticSearch ElasticSearch `yaml:"elasticSearch"`
+	ClusterName   string        `yaml:"clusterName"`
 }
 
 type DayConfig struct {

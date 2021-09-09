@@ -105,6 +105,7 @@ func (c CheckJob) processGlobal(t string, d string, job types.Target) {
 	} else if job.JobType == "singleDir" {
 		dirs = append(dirs, t)
 	} else {
+		fmt.Printf("Invalid JobType [%s]. Skip this job", job.JobType)
 		return
 	}
 
@@ -137,7 +138,7 @@ func (c CheckJob) processGlobal(t string, d string, job types.Target) {
 				doc := types.ESDocGlobal{
 					ESDoc: types.ESDoc{
 						Timestamp:  time.Now(),
-						Cluster:    "cluster",
+						Cluster:    c.config.ClusterName,
 						VolumeType: "global",
 						FullPath:   "/" + strings.Replace(dir, c.config.MountDir+"/", "", 1),
 						DiskSize:   strs[4],
@@ -163,7 +164,7 @@ func (c CheckJob) processProject(t string, d string, job types.Target) {
 				ESDocGlobal: types.ESDocGlobal{
 					ESDoc: types.ESDoc{
 						Timestamp:  time.Now(),
-						Cluster:    "cluster",
+						Cluster:    c.config.ClusterName,
 						VolumeType: "project",
 						FullPath:   "/" + job.Location + "/" + str[1],
 						DiskSize:   str[0],
@@ -190,7 +191,7 @@ func (c CheckJob) processPersonal(t string, d string, job types.Target) {
 			doc := types.ESDocPersonal{
 				ESDoc: types.ESDoc{
 					Timestamp:  time.Now(),
-					Cluster:    "cluster",
+					Cluster:    c.config.ClusterName,
 					VolumeType: "personal",
 					FullPath:   "/" + job.Location + "/" + str[1],
 					DiskSize:   str[0],
