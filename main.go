@@ -119,7 +119,7 @@ func (c CheckJob) processGlobal(t string, d string, job types.Target) {
 			fmt.Printf("db file %s is deleted. Go next step.\n", d)
 		}
 
-		database := c.config.OutputDir + "/" + strings.ReplaceAll(dir, "/", ".") + ".db"
+		database := c.config.OutputDir + "/" + strings.ReplaceAll(strings.Replace(dir, c.config.OutputDir, "", 1), "/", ".") + ".db"
 
 		runCommand("nice", fmt.Sprintf(niceArgsFmt, t, d))
 
