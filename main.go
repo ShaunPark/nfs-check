@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -55,6 +56,13 @@ func (c CheckJob) processJob(jobs []types.Target) {
 		database := c.config.OutputDir + "/" + strings.ReplaceAll(job.Location, "/", ".") + ".db"
 
 		fmt.Printf("Job[%d] : %s,  %s, %s\n", (i + 1), job.JobType, job.Type, targetDir)
+
+		if _, err := os.Stat("/path/to/whatever"); os.IsNotExist(err) {
+			fmt.Printf("directory %s is not exist.", targetDir)
+			return
+		} else {
+			fmt.Printf("directory %s is exist. Go next step.", targetDir)
+		}
 
 		switch job.Type {
 		case "global":
