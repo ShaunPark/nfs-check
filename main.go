@@ -215,19 +215,29 @@ func runCommand(c string, args string) {
 }
 
 func runCommandWithFunc(c string, args string, r []interface{}, f func(t string, r []interface{})) {
+	fmt.Printf("runCommandWithFunc : %s %s", c, args)
 	cmd := exec.Command(c, strings.Fields(args)...)
 	out, err := cmd.StdoutPipe()
 	if err != nil {
 		panic(err)
 	}
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		panic(err)
+	}
+
 	buf := bufio.NewScanner(out)
+	buf2 := bufio.NewScanner(stderr)
 	if err := cmd.Start(); err != nil {
 		panic(err)
 	}
-	defer cmd.Wait()
 
 	for buf.Scan() {
 		f(buf.Text(), r)
+	}
+
+	for buf2.Scan() {
+		fmt.Println(buf2.Text())
 	}
 	defer cmd.Wait()
 }
