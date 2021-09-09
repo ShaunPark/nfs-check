@@ -118,8 +118,8 @@ func (c CheckJob) processGlobal(t string, d string, job types.Target) {
 			os.Remove(d)
 			fmt.Printf("db file %s is deleted. Go next step.\n", d)
 		}
-
-		database := c.config.OutputDir + "/" + strings.ReplaceAll(strings.Replace(dir, c.config.OutputDir+"/", "", 1), "/", ".") + ".db"
+		fPath := strings.Replace(dir, c.config.MountDir+"/", "", 1)
+		database := c.config.OutputDir + "/" + strings.ReplaceAll(fPath, "/", ".") + ".db"
 
 		runCommand("nice", fmt.Sprintf(niceArgsFmt, t, d))
 
@@ -141,7 +141,7 @@ func (c CheckJob) processGlobal(t string, d string, job types.Target) {
 						Timestamp:  time.Now(),
 						Cluster:    c.config.ClusterName,
 						VolumeType: "global",
-						FullPath:   "/" + strings.Replace(dir, c.config.MountDir+"/", "", 1),
+						FullPath:   "/" + fPath,
 						DiskSize:   strs[4],
 					},
 					VolumeName: ss[len(ss)-1],
