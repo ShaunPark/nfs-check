@@ -57,7 +57,7 @@ func (c CheckJob) processJob(jobs []types.Target) {
 
 		fmt.Printf("Job[%d] : %s,  %s, %s\n", (i + 1), job.JobType, job.Type, targetDir)
 
-		if _, err := os.Stat("/path/to/whatever"); os.IsNotExist(err) {
+		if _, err := os.Stat(targetDir); os.IsNotExist(err) {
 			fmt.Printf("directory %s is not exist.\n", targetDir)
 			listDir(targetDir)
 			return
@@ -88,6 +88,8 @@ func listDir(d string) {
 }
 
 func (c CheckJob) processGlobal(t string, d string, job types.Target) {
+	fmt.Println("Start processGlobal")
+
 	dirs := []string{}
 
 	if job.JobType == "subDirs" {
@@ -106,12 +108,27 @@ func (c CheckJob) processGlobal(t string, d string, job types.Target) {
 		return
 	}
 
+	fmt.Printf("Process for %d dirs\n", len(dirs))
 	ret := make([]interface{}, 0)
 
 	for _, dir := range dirs {
+		if _, err := os.Stat(d); os.IsNotExist(err) {
+		} else {
+			os.Remove(d)
+			fmt.Printf("db file %s is deleted. Go next step.\n", d)
+		}
+
 		database := c.config.OutputDir + "/" + strings.ReplaceAll(dir, "/", ".") + ".db"
 
 		runCommand("nice", fmt.Sprintf(niceArgsFmt, t, d))
+
+		if _, err := os.Stat(d); os.IsNotExist(err) {
+			fmt.Printf("db file %s is not created.\n", d)
+			return
+		} else {
+			fmt.Printf("directory %s is created. Go next step.\n", d)
+		}
+
 		runCommandWithFunc("duc", fmt.Sprintf(ducArgsFmtGlobal, dir, database), ret, func(input string, r []interface{}) {
 			strs := strings.Fields(input)
 			if strs[0] != "Date" {
