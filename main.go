@@ -131,7 +131,6 @@ func (c CheckJob) processGlobal(t string, d string, job types.Target) {
 		}
 
 		runCommandWithFunc("duc", fmt.Sprintf(ducArgsFmtGlobal, dir, database), ret, func(input string, r []interface{}) {
-			fmt.Println(input)
 			strs := strings.Fields(input)
 			if strs[0] != "Date" {
 				ss := strings.Split(strs[5], "/")
@@ -155,9 +154,24 @@ func (c CheckJob) processGlobal(t string, d string, job types.Target) {
 }
 
 func (c CheckJob) processProject(t string, d string, job types.Target) {
+	fmt.Println("Start processProject")
+	if _, err := os.Stat(d); os.IsNotExist(err) {
+	} else {
+		os.Remove(d)
+		fmt.Printf("db file %s is deleted. Go next step.\n", d)
+	}
+
 	ret := make([]interface{}, 0)
 	runCommand("nice", fmt.Sprintf(niceArgsFmt, t, d))
+	if _, err := os.Stat(d); os.IsNotExist(err) {
+		fmt.Printf("db file %s is not created.\n", d)
+		return
+	} else {
+		fmt.Printf("directory %s is created. Go next step.\n", d)
+	}
 	runCommandWithFunc("duc", fmt.Sprintf(ducArgsFmtProject, t, d), ret, func(input string, r []interface{}) {
+		fmt.Println(input)
+
 		str := strings.Split(strings.Trim(input, " "), " ")
 		paths := strings.Split(str[1], "/")
 		if len(paths) == 4 && !startsWith(job.SkipDirs, str[1]) {
@@ -182,8 +196,22 @@ func (c CheckJob) processProject(t string, d string, job types.Target) {
 }
 
 func (c CheckJob) processPersonal(t string, d string, job types.Target) {
+	fmt.Println("Start processPersonal")
+	if _, err := os.Stat(d); os.IsNotExist(err) {
+	} else {
+		os.Remove(d)
+		fmt.Printf("db file %s is deleted. Go next step.\n", d)
+	}
+
 	ret := make([]interface{}, 0)
 	runCommand("nice", fmt.Sprintf(niceArgsFmt, t, d))
+	if _, err := os.Stat(d); os.IsNotExist(err) {
+		fmt.Printf("db file %s is not created.\n", d)
+		return
+	} else {
+		fmt.Printf("directory %s is created. Go next step.\n", d)
+	}
+
 	runCommandWithFunc("duc", fmt.Sprintf(ducArgsFmtPersonal, t, d), ret, func(input string, r []interface{}) {
 		println(input)
 		str := strings.Split(strings.Trim(input, " "), " ")
