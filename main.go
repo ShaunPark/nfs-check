@@ -58,10 +58,11 @@ func (c CheckJob) processJob(jobs []types.Target) {
 		fmt.Printf("Job[%d] : %s,  %s, %s\n", (i + 1), job.JobType, job.Type, targetDir)
 
 		if _, err := os.Stat("/path/to/whatever"); os.IsNotExist(err) {
-			fmt.Printf("directory %s is not exist.", targetDir)
+			fmt.Printf("directory %s is not exist.\n", targetDir)
+			listDir(targetDir)
 			return
 		} else {
-			fmt.Printf("directory %s is exist. Go next step.", targetDir)
+			fmt.Printf("directory %s is exist. Go next step.\n", targetDir)
 		}
 
 		switch job.Type {
@@ -72,6 +73,17 @@ func (c CheckJob) processJob(jobs []types.Target) {
 		case "project":
 			c.processProject(targetDir, database, job)
 		}
+	}
+}
+
+func listDir(d string) {
+	files, err := ioutil.ReadDir(d)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, f := range files {
+		fmt.Println(f.Name())
 	}
 }
 

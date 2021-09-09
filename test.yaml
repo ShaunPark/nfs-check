@@ -1,0 +1,119 @@
+---
+# Source: bee-shared-vol-check/templates/config.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: bee-shared-vol-check-secret
+  namespace: monitoring
+type: Opaque
+data:
+  password: |-
+    IXRlc3QxMjM=
+---
+# Source: bee-shared-vol-check/templates/config.yaml
+apiVersion: v1
+data:
+  config.yaml: |
+    mountDir: "/home/worker/nfs"
+    outputDir: "/tmp"
+    clusterName: "pri-mg-bee-prod"
+    elasticSearch:
+      host: "dee.lge.com"
+      port: "9200"
+      indexName: "bee-mg-prod-shared-volume"
+    jobs:
+    - day: Monday
+      targets:
+      - jobType: subDirs
+        location: ps
+        type: personal
+      - jobType: subDirs
+        location: pri-mg-bee-prod
+        type: project
+    - day: Tuesday
+      targets:
+      - jobType: singleDir
+        location: shared/mirror
+        type: global
+    - day: Wednesday
+      targets:
+      - jobType: singleDir
+        location: shared/data001
+        type: global
+    - day: Thursday
+      targets:
+      - jobType: singleDir
+        location: shared/home001
+        type: global
+    - day: Friday
+      targets:
+      - jobType: singleDir
+        location: shared/mirrorswp
+        type: global
+    - day: Saturday
+      targets:
+      - jobType: subDirs
+        location: shared
+        skipDirs:
+        - mirror
+        - data001
+        - home001
+        - mirrorswp
+        type: global
+kind: ConfigMap
+metadata:
+  namespace: monitoring
+  name: bee-shared-vol-check-cm
+  labels: {component: bee-shared-vol-check}
+---
+# Source: bee-shared-vol-check/templates/cronjob.yaml
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: bee-shared-vol-check
+  namespace: monitoring
+  labels: {component: bee-shared-vol-check}
+spec:
+  schedule: "05 17 * * *"
+  successfulJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: bee-shared-vol-check
+            image: cart.lge.com/bee_docker/bee-shared-vol-check:0.2.0
+            env:
+            - name: ES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: bee-shared-vol-check-secret
+                  key: password
+            command:
+            - /bee-shared-vol-check
+            - -f
+            - /config/config.yaml
+            resources:
+              requests:
+                cpu: "4"
+                memory: 10Gi
+              limits:
+                cpu: "8"
+                memory: 20Gi
+            volumeMounts:
+            - mountPath: "/home/worker/nfs"
+              name: bee-shared-vol-check-vol
+            - name: config
+              mountPath: /config
+              readOnly: true
+          volumes:
+          - name: bee-shared-vol-check-vol
+            persistentVolumeClaim:
+              claimName: "beemanager-personal-pvc"
+          - name: config
+            configMap:
+              name: bee-shared-vol-check-cm
+          restartPolicy: Never
+          nodeSelector:
+            beeworker: enabled
+      backoffLimit: 1
