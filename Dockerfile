@@ -3,8 +3,5 @@ WORKDIR /go/src/nfs-check
 COPY . .
 RUN go build -o /nfs-check .
 
-FROM ubuntu:18.04
-RUN apt update -y && \
-    apt install -y duc 
-
+FROM coolage/duc-ubuntu:2.0
 COPY --from=build /nfs-check /nfs-check
