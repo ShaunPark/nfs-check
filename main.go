@@ -119,7 +119,7 @@ func (c CheckJob) processGlobal(t string, d string, job types.Target) {
 			fmt.Printf("db file %s is deleted. Go next step.\n", d)
 		}
 
-		database := c.config.OutputDir + "/" + strings.ReplaceAll(strings.Replace(dir, c.config.OutputDir, "", 1), "/", ".") + ".db"
+		database := c.config.OutputDir + "/" + strings.ReplaceAll(strings.Replace(dir, c.config.OutputDir+"/", "", 1), "/", ".") + ".db"
 
 		runCommand("nice", fmt.Sprintf(niceArgsFmt, t, d))
 
@@ -215,7 +215,7 @@ func runCommand(c string, args string) {
 }
 
 func runCommandWithFunc(c string, args string, r []interface{}, f func(t string, r []interface{})) {
-	fmt.Printf("runCommandWithFunc : %s %s", c, args)
+	fmt.Printf("runCommandWithFunc : %s %s\n", c, args)
 	cmd := exec.Command(c, strings.Fields(args)...)
 	out, err := cmd.StdoutPipe()
 	if err != nil {
