@@ -1,4 +1,4 @@
-FROM coolage/golang-ubuntu AS build
+FROM coolage/golang-ubuntu:1.0 AS build
 WORKDIR /go/src/nfs-check
 COPY . .
 RUN go build -o /nfs-check .
