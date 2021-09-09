@@ -131,6 +131,7 @@ func (c CheckJob) processGlobal(t string, d string, job types.Target) {
 		}
 
 		runCommandWithFunc("duc", fmt.Sprintf(ducArgsFmtGlobal, dir, database), ret, func(input string, r []interface{}) {
+			fmt.Println(input)
 			strs := strings.Fields(input)
 			if strs[0] != "Date" {
 				ss := strings.Split(strs[5], "/")
