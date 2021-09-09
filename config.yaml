@@ -1,0 +1,48 @@
+mountDir: "/home/shpark"
+outputDir: "/home/shpark/tmp"
+elasticSearch:
+  host: "3.37.79.125"
+  port: "9200"
+  indexName: es_log
+jobs:
+- day: "Sunday"
+  targets:
+  - type: personal
+    location: ps
+    jobType: subDirs
+  - type: project
+    jobType: subDirs
+    location: eks-an2-bee-st
+  - type: global
+    location: shared/webostv
+    jobType: singleDir
+  - type: global
+    location: shared/dockrfiles
+    jobType: singleDir
+- day: "Monday"
+  targets:
+  - type: personal
+    jobType: singleDir
+    location: shell
+- day: "Thursday"
+  targets:
+  - type: global
+    location: ts/helmTest
+    jobType: singleDir
+  - jobType: subDirs
+    type: global
+    location: ts
+    skipDirs:
+    - npd
+    - operator
+    - test
+  - type: personal
+    jobType: subDirs
+    location: golang
+    skipDirs:
+    - src
+  - type: project
+    location: golang
+    jobType: singleDir
+    skipDirs:
+    - "pkg"
