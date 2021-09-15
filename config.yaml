@@ -6,7 +6,7 @@ elasticSearch:
   port: "9200"
   indexName: es_log
 jobs:
-- day: "Sunday"
+- day: "Wednesday"
   targets:
   - type: personal
     location: ps
