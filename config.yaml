@@ -44,6 +44,6 @@ jobs:
     - src
   - type: project
     location: golang
-    jobType: singleDir
+    jobType: subDirs
     skipDirs:
     - "pkg"

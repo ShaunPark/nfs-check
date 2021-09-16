@@ -1,6 +1,9 @@
 package types
 
-import "time"
+import (
+	"encoding/xml"
+	"time"
+)
 
 type ESDoc struct {
 	Timestamp  time.Time `json:"timestamp"`
@@ -23,4 +26,10 @@ type ESDocProject struct {
 type ESDocPersonal struct {
 	ESDoc
 	UserName string `json:"user_name"`
+}
+
+type DUC_RET struct {
+	XMLNmae xml.Name `xml:"duc"`
+	Root    string   `xml:"root,attr"`
+	Size    string   `xml:"size_actual,attr"`
 }

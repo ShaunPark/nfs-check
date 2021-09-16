@@ -1,18 +1,15 @@
 package main
 
 import (
-	"bufio"
+	"encoding/xml"
 	"fmt"
-	"io/ioutil"
+	"io/fs"
 	"log"
 	"os"
-	"os/exec"
+	"path"
 	"strings"
 	"time"
 
-	"encoding/json"
-
-	"github.com/ShaunPark/nfsCheck/elasticsearch"
 	"github.com/ShaunPark/nfsCheck/types"
 	"github.com/ShaunPark/nfsCheck/utils"
 
@@ -23,10 +20,16 @@ type CheckJob struct {
 	config *types.Config
 }
 
-const niceArgsFmt = "-n 19 ionice -c 3 duc index %s -d %s"
-const ducArgsFmtPersonal = "ls -R %s -d %s --level=0 --dirs-only --full-path --bytes"
-const ducArgsFmtProject = "ls -R %s -d %s --level=3 --dirs-only --full-path --bytes"
-const ducArgsFmtGlobal = "info %s -d %s --bytes"
+const SINGLE_DIR = "singleDir"
+const SUB_DIRS = "subDirs"
+const GLOBAL = "global"
+const PROJECT = "project"
+const PERSONAL = "personal"
+
+const INDEX_FMT = "nice -n 19 ionice -c 3 duc index %s -d %s -m %d"
+const XML_FMt = "duc xml %s -d %s"
+
+type docFunc func(path string, size string) (v interface{})
 
 func (c CheckJob) run(weekday time.Weekday) {
 	fmt.Printf("%s\n", strings.Repeat("=", 40))
@@ -40,6 +43,7 @@ func (c CheckJob) run(weekday time.Weekday) {
 			if processed {
 				fmt.Printf("%s\n", strings.Repeat("-", 40))
 			}
+
 			c.processJob(d.Targets)
 			processed = true
 		}
@@ -62,294 +66,141 @@ func (c CheckJob) processJob(jobs []types.Target) {
 		if i != 0 {
 			fmt.Printf("%s\n", strings.Repeat("-", 40))
 		}
-		fmt.Printf("\nJob[%d] : %s,  %s, %s\n", (i + 1), job.JobType, job.Type, targetDir)
+		fmt.Printf("Job[%d] : %s,  %s, %s\n", (i + 1), job.JobType, job.Type, targetDir)
 
-		if _, err := os.Stat(targetDir); os.IsNotExist(err) {
-			fmt.Printf("0. directory %s is not exist.\n", targetDir)
-			continue
-		} else {
-			fmt.Printf("0. directory %s is exist. Go next step.\n", targetDir)
-		}
-
-		switch job.Type {
-		case "global":
-			c.processGlobal(targetDir, job)
-		case "personal":
-			c.processPersonal(targetDir, job)
-		case "project":
-			c.processProject(targetDir, job)
-		}
+		c.process(job)
 	}
 }
 
-func makeDBfileName(outDir string, fPath string) string {
-	now := time.Now()
-	return fmt.Sprintf("%s/%s.%d.db", outDir, strings.ReplaceAll(fPath, "/", "."), now.Unix())
-}
+func (c CheckJob) process(job types.Target) {
+	var fn docFunc
+	var depth int
 
-func (c CheckJob) processGlobal(tgtDir string, job types.Target) {
-	fmt.Println("1. Start processGlobal")
-	// 대상 dir 목록 생성
-	dirs := []string{}
-	// subDirs이면 하위 디렉토리를 조회해서 목록생성
-	if job.JobType == "subDirs" {
-		if files, err := ioutil.ReadDir(tgtDir); err != nil {
-			fmt.Printf("1-1. Getting sub directories of '%s' failed. Skip this dir.\n", tgtDir)
-			return
-		} else {
-			for _, f := range files {
-				if f.IsDir() && !contains(job.SkipDirs, f.Name()) {
-					dirs = append(dirs, tgtDir+"/"+f.Name())
-				}
+	switch job.Type {
+	case GLOBAL:
+		depth = 2
+		fn = func(path string, size string) (v interface{}) {
+			strs := strings.Split(path, "/")
+			doc := types.ESDocGlobal{
+				ESDoc: types.ESDoc{
+					Timestamp:  time.Now(),
+					Cluster:    c.config.ClusterName,
+					VolumeType: "global",
+					FullPath:   path,
+					DiskSize:   size,
+				},
+				VolumeName: strs[len(strs)-1],
 			}
+			return doc
 		}
-	} else if job.JobType == "singleDir" {
-		// singleDir이면 단일 디렉토리를 목록에 추가
-		// 디렉토리가 존재하지 않으면 작업을 수행하지 않음
-		if _, err := os.Stat(tgtDir); os.IsNotExist(err) {
-			fmt.Printf("1-1. target dir '%s' is not exist. Skip this dir.\n", tgtDir)
-			return
-		} else {
-			dirs = append(dirs, tgtDir)
-		}
-	} else {
-		fmt.Printf("1-1. Invalid JobType [%s]. Skip this job", job.JobType)
-		return
-	}
-	fmt.Printf("2. %d directories will be processed.\n", len(dirs))
-
-	ret := make([]interface{}, 0)
-
-	// 조회된 dir들에 대해서 수행
-	for i, dir := range dirs {
-		fPath := strings.Replace(dir, c.config.MountDir+"/", "", 1)
-		// 데이터베이스 파일명 생성
-		database := makeDBfileName(c.config.OutputDir, fPath)
-		// 대상 디렉토리가 있는지 확인 없으면 스킵
-		if _, err := os.Stat(dir); os.IsNotExist(err) {
-			fmt.Printf("3-%d. ir %s is not exist. Skip this job.\n", i, dir)
-			continue
-		}
-		// nice 명령어 수행. 실패 시 스킵
-		if err := runCommand("nice", fmt.Sprintf(niceArgsFmt, dir, database)); err != nil {
-			log.Print(err)
-			continue
-		}
-
-		// database 파일 생성 확인.
-		if _, err := os.Stat(database); os.IsNotExist(err) {
-			fmt.Printf("3-%d. db file %s is not created. Skip this directory\n", i, database)
-			continue
-		} else {
-			fmt.Printf("3-%d. database file of '%s' is generated.\n", i, database)
-		}
-		// duc 명령어 수행
-		if err := runCommandWithFunc("duc", fmt.Sprintf(ducArgsFmtGlobal, dir, database), ret, func(input string, r []interface{}) {
-			strs := strings.Fields(input)
-			if strs[0] != "Date" {
-				ss := strings.Split(strs[5], "/")
-
-				doc := types.ESDocGlobal{
-					ESDoc: types.ESDoc{
-						Timestamp:  time.Now(),
-						Cluster:    c.config.ClusterName,
-						VolumeType: "global",
-						FullPath:   "/" + fPath,
-						DiskSize:   strs[4],
-					},
-					VolumeName: ss[len(ss)-1],
-				}
-				ret = append(ret, doc)
-			}
-		}); err != nil {
-			log.Print(err)
-			continue
-		}
-		fmt.Printf("4-%d. Process for '%s' is finished .\n", i, dir)
-	}
-
-	// elasticsearch에 결과 저장
-	if len(ret) > 0 {
-		saveToElasticSearch(*c.config, ret)
-		fmt.Printf("5. %d record saved to elasticsearch .\n", len(ret))
-	}
-}
-
-func (c CheckJob) processProject(tgtDir string, job types.Target) {
-	fmt.Println("1. Start processProject")
-	// database 파일명 생성
-	database := makeDBfileName(c.config.OutputDir, job.Location)
-	// target dir 유무 확인
-	if _, err := os.Stat(tgtDir); os.IsNotExist(err) {
-		fmt.Printf("1-1. dir %s is not exist. Skip this job.\n", tgtDir)
-		return
-	}
-	// nice 명령어 실행
-	if err := runCommand("nice", fmt.Sprintf(niceArgsFmt, tgtDir, database)); err != nil {
-		log.Print(err)
-		return
-	}
-	// dababase 파일이 생성되지 않으면 종료
-	if _, err := os.Stat(database); os.IsNotExist(err) {
-		fmt.Printf("2. database file of '%s' is not created. Skip this job.\n", database)
-		return
-	} else {
-		fmt.Printf("2. database file of '%s' is generated.\n", database)
-	}
-	// duc 명령어 실행
-	ret := make([]interface{}, 0)
-	if err := runCommandWithFunc("duc", fmt.Sprintf(ducArgsFmtProject, tgtDir, database), ret, func(input string, r []interface{}) {
-		str := strings.Split(strings.Trim(input, " "), " ")
-		paths := strings.Split(str[1], "/")
-		if len(paths) == 4 && !startsWith(job.SkipDirs, str[1]) {
+	case PROJECT:
+		depth = 4
+		fn = func(path string, size string) (v interface{}) {
+			strs := strings.Split(path, "/")
 			doc := types.ESDocProject{
 				ESDocGlobal: types.ESDocGlobal{
 					ESDoc: types.ESDoc{
 						Timestamp:  time.Now(),
 						Cluster:    c.config.ClusterName,
-						VolumeType: "project",
-						FullPath:   "/" + job.Location + "/" + str[1],
-						DiskSize:   str[0],
+						VolumeType: job.Type,
+						FullPath:   path,
+						DiskSize:   size,
 					},
-					VolumeName: paths[3],
+					VolumeName: strs[len(strs)-1],
 				},
-				ProjectName: paths[2],
+				ProjectName: strs[len(strs)-2],
 			}
-			ret = append(ret, doc)
+			return doc
 		}
-	}); err != nil {
-		log.Print(err)
-		return
-	}
-	fmt.Printf("3. Process for '%s' is finished .\n", tgtDir)
-
-	// elasticsearch에 결과 저장
-	if len(ret) > 0 {
-		saveToElasticSearch(*c.config, ret)
-		fmt.Printf("4. %d record saved to elasticsearch .\n", len(ret))
-	}
-}
-
-func (c CheckJob) processPersonal(tgtDir string, job types.Target) {
-	fmt.Println("1. Start processPersonal")
-	// database 파일명 생성
-	database := makeDBfileName(c.config.OutputDir, job.Location)
-	if _, err := os.Stat(tgtDir); os.IsNotExist(err) {
-		fmt.Printf("1-1. dir %s is not exist. Skip this job.\n", tgtDir)
-		return
-	}
-	// nice 명령어 실행
-	if err := runCommand("nice", fmt.Sprintf(niceArgsFmt, tgtDir, database)); err != nil {
-		log.Print(err)
-		return
-	}
-	// dababase 파일이 생성되지 않으면 종료
-	if _, err := os.Stat(database); os.IsNotExist(err) {
-		fmt.Printf("2. database file of '%s' is not created. Skip this job.\n", database)
-		return
-	} else {
-		fmt.Printf("2. database file of '%s' is generated.\n", database)
-	}
-
-	// duc 명령어 실행
-	ret := make([]interface{}, 0)
-	if err := runCommandWithFunc("duc", fmt.Sprintf(ducArgsFmtPersonal, tgtDir, database), ret, func(input string, r []interface{}) {
-		str := strings.Split(strings.Trim(input, " "), " ")
-
-		if !contains(job.SkipDirs, str[1]) {
+	case PERSONAL:
+		depth = 2
+		fn = func(path string, size string) (v interface{}) {
+			strs := strings.Split(path, "/")
 			doc := types.ESDocPersonal{
 				ESDoc: types.ESDoc{
 					Timestamp:  time.Now(),
 					Cluster:    c.config.ClusterName,
-					VolumeType: "personal",
-					FullPath:   "/" + job.Location + "/" + str[1],
-					DiskSize:   str[0],
+					VolumeType: job.Type,
+					FullPath:   path,
+					DiskSize:   size,
 				},
-				UserName: str[1],
+				UserName: strs[len(strs)-1],
 			}
-			ret = append(ret, doc)
+			return doc
 		}
-	}); err != nil {
-		log.Print(err)
+	default:
 		return
 	}
-	fmt.Printf("3. Process for '%s' is finished .\n", tgtDir)
+
+	var jsons = make([]interface{}, 0)
+
+	if job.JobType == SINGLE_DIR {
+		ret := c.execute(path.Join(c.config.MountDir, job.Location), job, fn)
+		if ret != nil {
+			jsons = append(jsons, ret)
+		}
+	} else {
+		utils.WalkDirWithDepth(c.config.MountDir, job.Location, func(dir string, d fs.DirEntry, err error) error {
+			if d.IsDir() && !contains(job.SkipDirs, strings.Replace(dir, path.Join(c.config.MountDir, job.Location)+"/", "", 1)) {
+				ret := c.execute(dir, job, fn)
+				if ret != nil {
+					jsons = append(jsons, ret)
+				}
+			}
+			return nil
+		}, depth)
+	}
 
 	// elasticsearch에 결과 저장
-	if len(ret) > 0 {
-		saveToElasticSearch(*c.config, ret)
-		fmt.Printf("4. %d record saved to elasticsearch .\n", len(ret))
+	if len(jsons) > 0 {
+		fmt.Printf("%s\n", strings.Repeat("-", 40))
+		fmt.Printf("4. %d records saved to elasticsearch .\n", len(jsons))
+		saveToElasticSearch(*c.config, jsons)
 	}
 }
 
-func runCommand(c string, args string) error {
-	cmd := exec.Command(c, strings.Fields(args)...)
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-	defer cmd.Wait()
-	return nil
-}
-
-func runCommandWithFunc(c string, args string, r []interface{}, f func(t string, r []interface{})) error {
-	cmd := exec.Command(c, strings.Fields(args)...)
-	out, err := cmd.StdoutPipe()
-	if err != nil {
-		return err
-	}
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return err
+func (c CheckJob) execute(path string, job types.Target, fn docFunc) interface{} {
+	fmt.Printf("%s\n", strings.Repeat("-", 40))
+	fmt.Printf("1. Start execute for '%s'\n", path)
+	// 디렉토리가 존재하지 않으면 작업을 수행하지 않음
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		fmt.Printf("1-1. target dir '%s' is not exist. Skip this dir.\n", path)
+		return nil
 	}
 
-	buf := bufio.NewScanner(out)
-	buf2 := bufio.NewScanner(stderr)
-	if err := cmd.Start(); err != nil {
-		return err
+	// 데이터베이스 파일명 생성
+	database := makeDBfileName(c.config.OutputDir, path)
+	// nice 명령어 수행. 실패 시 스킵
+	if err := runCommand(fmt.Sprintf(INDEX_FMT, path, database, 2)); err != nil {
+		log.Print(err)
+		return nil
 	}
 
-	for buf.Scan() {
-		f(buf.Text(), r)
+	// database 파일 생성 확인.
+	if _, err := os.Stat(database); os.IsNotExist(err) {
+		fmt.Printf("2. db file %s is not created. Skip this directory\n", database)
+		return nil
+	} else {
+		fmt.Printf("2. database file of '%s' is generated.\n", database)
 	}
 
-	for buf2.Scan() {
-		fmt.Println(buf2.Text())
-	}
-	defer cmd.Wait()
+	if bytes, err := runCommandGetStdOutBytes(fmt.Sprintf(XML_FMt, path, database)); err == nil {
+		var ducRet types.DUC_RET
+		xmlErr := xml.Unmarshal(bytes, &ducRet)
+		// println(string(bytes))
+		if xmlErr == nil {
+			d := fn(strings.Replace(ducRet.Root, c.config.MountDir, "", 1), ducRet.Size)
+			fmt.Printf("3. Process for %s finished successfully.\n", path)
 
-	return nil
-}
-
-func saveToElasticSearch(config types.Config, v []interface{}) {
-	for _, d := range v {
-		printJson(d)
-	}
-
-	es := elasticsearch.NewESClient(&config)
-	es.Bulk(v)
-}
-
-func contains(s []string, e string) bool {
-	for _, a := range s {
-		if a == e {
-			return true
+			return d
+		} else {
+			log.Print(err)
 		}
+	} else {
+		log.Print(err)
 	}
-	return false
-}
-
-func startsWith(s []string, e string) bool {
-	for _, a := range s {
-		if strings.HasPrefix(e, a) {
-			return true
-		}
-	}
-	return false
-}
-
-func printJson(v interface{}) {
-	bytes, _ := json.Marshal(v)
-	println(string(bytes))
+	fmt.Printf("3. Process for %s failed. \n", path)
+	return nil
 }
 
 var (
