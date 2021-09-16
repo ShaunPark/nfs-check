@@ -41,7 +41,7 @@ func (c CheckJob) run(weekday time.Weekday) {
 	processed := false
 
 	for _, d := range c.config.Days {
-		if time.Weekday(weekday).String() == d.Day {
+		if time.Weekday(weekday).String() == d.Day || d.Day == "Everyday" {
 			if processed {
 				fmt.Printf("%s\n", strings.Repeat("-", 40))
 			}
