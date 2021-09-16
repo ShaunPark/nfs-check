@@ -206,9 +206,9 @@ func (c CheckJob) execute(path string, job types.Target, fn docFunc) interface{}
 }
 
 func (c CheckJob) runCommand(cmdStr string) error {
-	if c.config.TestMode {
-		fmt.Print(cmdStr)
-	}
+	// if c.config.TestMode {
+	fmt.Println(cmdStr)
+	// }
 	fields := strings.Fields(cmdStr)
 	cmd := exec.Command(fields[0], fields[1:]...)
 	if err := cmd.Start(); err != nil {
@@ -219,9 +219,9 @@ func (c CheckJob) runCommand(cmdStr string) error {
 }
 
 func (c CheckJob) runCommandGetStdOutBytes(cmdStr string) ([]byte, error) {
-	if c.config.TestMode {
-		fmt.Print(cmdStr)
-	}
+	// if c.config.TestMode {
+	fmt.Println(cmdStr)
+	// }
 	fields := strings.Fields(cmdStr)
 	cmd := exec.Command(fields[0], fields[1:]...)
 	out, err := cmd.StdoutPipe()
