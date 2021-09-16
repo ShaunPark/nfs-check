@@ -35,12 +35,10 @@ func (c CheckJob) run(weekday time.Weekday) {
 
 	processed := false
 
-ENDLOOP:
 	for _, d := range c.config.Days {
 		if time.Weekday(weekday).String() == d.Day {
 			c.processJob(d.Targets)
 			processed = true
-			break ENDLOOP
 		}
 	}
 
