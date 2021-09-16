@@ -37,6 +37,9 @@ func (c CheckJob) run(weekday time.Weekday) {
 
 	for _, d := range c.config.Days {
 		if time.Weekday(weekday).String() == d.Day {
+			if processed {
+				fmt.Printf("%s\n", strings.Repeat("-", 40))
+			}
 			c.processJob(d.Targets)
 			processed = true
 		}
