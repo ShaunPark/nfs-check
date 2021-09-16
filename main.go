@@ -28,7 +28,7 @@ const GLOBAL = "global"
 const PROJECT = "project"
 const PERSONAL = "personal"
 
-const INDEX_FMT = "nice -n 19 ionice -c 3 duc index %s -d %s -m %d"
+const INDEX_FMT = "nice -n 19 ionice -c 3 duc index %s -d %s -m 2"
 const XML_FMt = "duc xml %s -d %s"
 
 type docFunc func(path string, size string) (v interface{})
@@ -173,7 +173,7 @@ func (c CheckJob) execute(path string, job types.Target, fn docFunc) interface{}
 	// 데이터베이스 파일명 생성
 	database := makeDBfileName(c.config.OutputDir, path)
 	// nice 명령어 수행. 실패 시 스킵
-	if err := c.runCommand(fmt.Sprintf(INDEX_FMT, path, database, 3)); err != nil {
+	if err := c.runCommand(fmt.Sprintf(INDEX_FMT, path, database)); err != nil {
 		log.Print(err)
 		return nil
 	}
@@ -206,9 +206,6 @@ func (c CheckJob) execute(path string, job types.Target, fn docFunc) interface{}
 }
 
 func (c CheckJob) runCommand(cmdStr string) error {
-	// if c.config.TestMode {
-	fmt.Println(cmdStr)
-	// }
 	fields := strings.Fields(cmdStr)
 	cmd := exec.Command(fields[0], fields[1:]...)
 	if err := cmd.Start(); err != nil {
@@ -219,9 +216,6 @@ func (c CheckJob) runCommand(cmdStr string) error {
 }
 
 func (c CheckJob) runCommandGetStdOutBytes(cmdStr string) ([]byte, error) {
-	// if c.config.TestMode {
-	fmt.Println(cmdStr)
-	// }
 	fields := strings.Fields(cmdStr)
 	cmd := exec.Command(fields[0], fields[1:]...)
 	out, err := cmd.StdoutPipe()
