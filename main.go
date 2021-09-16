@@ -171,7 +171,7 @@ func (c CheckJob) execute(path string, job types.Target, fn docFunc) interface{}
 	// 데이터베이스 파일명 생성
 	database := makeDBfileName(c.config.OutputDir, path)
 	// nice 명령어 수행. 실패 시 스킵
-	if err := runCommand(fmt.Sprintf(INDEX_FMT, path, database, 2)); err != nil {
+	if err := runCommand(fmt.Sprintf(INDEX_FMT, path, database, 3)); err != nil {
 		log.Print(err)
 		return nil
 	}
