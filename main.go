@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"encoding/xml"
 	"fmt"
 	"io/fs"
 	"log"
 	"os"
+	"os/exec"
 	"path"
 	"strings"
 	"time"
@@ -171,7 +173,7 @@ func (c CheckJob) execute(path string, job types.Target, fn docFunc) interface{}
 	// 데이터베이스 파일명 생성
 	database := makeDBfileName(c.config.OutputDir, path)
 	// nice 명령어 수행. 실패 시 스킵
-	if err := runCommand(fmt.Sprintf(INDEX_FMT, path, database, 3)); err != nil {
+	if err := c.runCommand(fmt.Sprintf(INDEX_FMT, path, database, 3)); err != nil {
 		log.Print(err)
 		return nil
 	}
@@ -184,7 +186,7 @@ func (c CheckJob) execute(path string, job types.Target, fn docFunc) interface{}
 		fmt.Printf("2. database file of '%s' is generated.\n", database)
 	}
 
-	if bytes, err := runCommandGetStdOutBytes(fmt.Sprintf(XML_FMt, path, database)); err == nil {
+	if bytes, err := c.runCommandGetStdOutBytes(fmt.Sprintf(XML_FMt, path, database)); err == nil {
 		var ducRet types.DUC_RET
 		xmlErr := xml.Unmarshal(bytes, &ducRet)
 		// println(string(bytes))
@@ -201,6 +203,53 @@ func (c CheckJob) execute(path string, job types.Target, fn docFunc) interface{}
 	}
 	fmt.Printf("3. Process for %s failed. \n", path)
 	return nil
+}
+
+func (c CheckJob) runCommand(cmdStr string) error {
+	if c.config.TestMode {
+		fmt.Print(cmdStr)
+	}
+	fields := strings.Fields(cmdStr)
+	cmd := exec.Command(fields[0], fields[1:]...)
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	defer cmd.Wait()
+	return nil
+}
+
+func (c CheckJob) runCommandGetStdOutBytes(cmdStr string) ([]byte, error) {
+	if c.config.TestMode {
+		fmt.Print(cmdStr)
+	}
+	fields := strings.Fields(cmdStr)
+	cmd := exec.Command(fields[0], fields[1:]...)
+	out, err := cmd.StdoutPipe()
+	if err != nil {
+		return nil, err
+	}
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return nil, err
+	}
+
+	buf := bufio.NewScanner(out)
+	buf2 := bufio.NewScanner(stderr)
+	if err := cmd.Start(); err != nil {
+		return nil, err
+	}
+
+	ret := []byte{}
+	for buf.Scan() {
+		ret = append(ret, buf.Bytes()...)
+	}
+
+	for buf2.Scan() {
+		fmt.Println(buf2.Text())
+	}
+	defer cmd.Wait()
+
+	return ret, nil
 }
 
 var (

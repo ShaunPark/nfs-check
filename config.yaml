@@ -1,6 +1,7 @@
 mountDir: "/home/shpark"
 outputDir: "/home/shpark/tmp"
 clusterName: "cluster"
+testMode: "true"
 elasticSearch:
   host: "3.37.79.125"
   port: "9200"
