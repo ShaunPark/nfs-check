@@ -82,7 +82,6 @@ func (e *ElasticSearch) Bulk(v []interface{}) {
 		numItems   int
 		numErrors  int
 		numIndexed int
-		numBatches int
 		currBatch  int
 		batch      int = 255
 		res        *esapi.Response
@@ -104,8 +103,6 @@ func (e *ElasticSearch) Bulk(v []interface{}) {
 		buf.Write(data)
 
 		if i > 0 && i%batch == 0 || i == count-1 {
-			fmt.Printf("[%d/%d] ", currBatch, numBatches)
-
 			res, err = e.client.Bulk(bytes.NewReader(buf.Bytes()), e.client.Bulk.WithIndex(e.indexName))
 			if err != nil {
 				log.Fatalf("Failure indexing batch %d: %s", currBatch, err)
