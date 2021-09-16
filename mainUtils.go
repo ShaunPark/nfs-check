@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ShaunPark/nfsCheck/elasticsearch"
 	"github.com/ShaunPark/nfsCheck/types"
 )
 
@@ -32,8 +33,8 @@ func saveToElasticSearch(config types.Config, v []interface{}) {
 		printJson(d)
 	}
 
-	// es := elasticsearch.NewESClient(&config)
-	// es.Bulk(v)
+	es := elasticsearch.NewESClient(&config)
+	es.Bulk(v)
 }
 
 func makeDBfileName(outDir string, fPath string) string {
