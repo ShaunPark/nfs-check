@@ -94,7 +94,7 @@ func (c CheckJob) process(job types.Target) {
 			return doc
 		}
 	case PROJECT:
-		depth = 4
+		depth = 5
 		fn = func(path string, size string) (v interface{}) {
 			strs := strings.Split(path, "/")
 			doc := types.ESDocProject{
