@@ -65,7 +65,7 @@ func (c CheckJob) processJob(jobs []types.Target) {
 
 		if _, err := os.Stat(targetDir); os.IsNotExist(err) {
 			fmt.Printf("0. directory %s is not exist.\n", targetDir)
-			return
+			continue
 		} else {
 			fmt.Printf("0. directory %s is exist. Go next step.\n", targetDir)
 		}
