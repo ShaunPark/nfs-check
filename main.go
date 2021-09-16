@@ -15,6 +15,7 @@ import (
 	"github.com/ShaunPark/nfsCheck/elasticsearch"
 	"github.com/ShaunPark/nfsCheck/types"
 	"github.com/ShaunPark/nfsCheck/utils"
+
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
