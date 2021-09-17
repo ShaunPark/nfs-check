@@ -1,11 +1,13 @@
 mountDir: "/home/shpark"
 outputDir: "/home/shpark/tmp"
 clusterName: "cluster"
-testMode: "true"
+testMode: true
 elasticSearch:
   host: "3.37.79.125"
   port: "9200"
   indexName: es_log
+skipDays:
+- "Sunday"
 jobs:
 - day: "Wednesday"
   targets:
@@ -21,30 +23,30 @@ jobs:
   - type: global
     location: shared/dockrfiles
     jobType: singleDir
-- day: "Monday"
+- day: "Everyday"
   targets:
   - type: personal
-    jobType: singleDir
+    jobType: subDirs
     location: shell
-- day: "Thursday"
+- day: "Everyday"
   targets:
-  - type: global
-    location: ts/helmTest
-    jobType: singleDir
-  - jobType: subDirs
-    type: global
-    location: ts
-    skipDirs:
-    - npd
-    - operator
-    - test
-  - type: personal
-    jobType: subDirs
-    location: golang
-    skipDirs:
-    - src
+  # - type: global
+  #   location: ts/helmTest
+  #   jobType: singleDir
+  # - jobType: subDirs
+  #   type: global
+  #   location: ts
+  #   skipDirs:
+  #   - npd
+  #   - operator
+  #   - test
+  #   - node-mon-deploy
+  #   - helmTest
+  # - type: personal
+  #   jobType: subDirs
+  #   location: golang
+  #   skipDirs:
+  #   - src
   - type: project
-    location: golang
+    location: golang/src/github.com/ShaunPark
     jobType: subDirs
-    skipDirs:
-    - "pkg"

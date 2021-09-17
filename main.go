@@ -27,6 +27,7 @@ const SUB_DIRS = "subDirs"
 const GLOBAL = "global"
 const PROJECT = "project"
 const PERSONAL = "personal"
+const EVERY_DAY = "Everyday"
 
 const INDEX_FMT = "nice -n 19 ionice -c 3 duc index %s -d %s -m 2"
 const XML_FMt = "duc xml %s -d %s"
@@ -40,19 +41,23 @@ func (c CheckJob) run(weekday time.Weekday) {
 
 	processed := false
 
-	for _, d := range c.config.Days {
-		if time.Weekday(weekday).String() == d.Day || d.Day == "Everyday" {
-			if processed {
-				fmt.Printf("%s\n", strings.Repeat("-", 40))
+	if !contains(c.config.SkipDays, time.Weekday(weekday).String()) {
+		for _, d := range c.config.Days {
+			if time.Weekday(weekday).String() == d.Day || d.Day == EVERY_DAY {
+				if processed {
+					fmt.Printf("%s\n", strings.Repeat("-", 40))
+				}
+
+				c.processJob(d.Targets)
+				processed = true
 			}
-
-			c.processJob(d.Targets)
-			processed = true
 		}
-	}
 
-	if !processed {
-		fmt.Printf("No Job configuration for %s. Skip todays job.\n", weekday)
+		if !processed {
+			fmt.Printf("No Job configuration for %s. Skip todays job.\n", weekday)
+		}
+	} else {
+		fmt.Print("Today job will be skipped.\n")
 	}
 
 	fmt.Printf("%s\n", strings.Repeat("=", 40))
@@ -143,7 +148,7 @@ func (c CheckJob) process(job types.Target) {
 		}
 	} else {
 		utils.WalkDirWithDepth(c.config.MountDir, job.Location, func(dir string, d fs.DirEntry, err error) error {
-			if d.IsDir() && !contains(job.SkipDirs, strings.Replace(dir, path.Join(c.config.MountDir, job.Location)+"/", "", 1)) {
+			if d.IsDir() && !isValidPath(job.SkipDirs, strings.Replace(dir, path.Join(c.config.MountDir, job.Location)+"/", "", 1)) {
 				ret := c.execute(dir, job, fn)
 				if ret != nil {
 					jsons = append(jsons, ret)
